@@ -1,4 +1,4 @@
-# Cabbage
+## ![Cabbage](assets/banner.png)
 
 A local-first, Git-powered Markdown notes application for personal knowledge management. It uses a standard Git repository as the single source of truth.
 

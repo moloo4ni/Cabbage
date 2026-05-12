@@ -1,4 +1,4 @@
-# Cabbage
+## ![Cabbage](assets/banner.png)
 
 Eine Local-First Markdown-Notiz-Anwendung, die Git als Speicher nutzt. Ein Standard-Git-Repository dient als einzige Datenquelle für das persönliche Wissensmanagement.
 
