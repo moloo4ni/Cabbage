@@ -1,4 +1,4 @@
-## ![Cabbage](assets/banner.png)
+# Cabbage
 
 Una aplicación de notas Markdown local-first que utiliza Git como sistema de almacenamiento. Un repositorio Git estándar sirve como la única fuente de verdad para la gestión del conocimiento personal.
 
