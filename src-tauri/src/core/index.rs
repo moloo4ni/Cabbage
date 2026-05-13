@@ -1,30 +1,46 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::path::Path;
+use walkdir::WalkDir;
 use regex::Regex;
 
-pub struct AppState {
-    pub vault_path: Mutex<Option<String>>,
-    // Target Note -> Vec<Source Notes> (для backlinks)
-    pub backlinks: Mutex<HashMap<String, Vec<String>>>, 
-}
+/// Scans all .md files in the vault and builds a backlinks index.
+/// backlinks[target] = Vec<source> — which notes link TO `target`.
+pub fn build_index(vault_path: &Path) -> HashMap<String, Vec<String>> {
+    let re = Regex::new(r"\[\[([^\[\]]+)\]\]").unwrap();
+    let mut backlinks: HashMap<String, Vec<String>> = HashMap::new();
 
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            vault_path: Mutex::new(None),
-            backlinks: Mutex::new(HashMap::new()),
+    for entry in WalkDir::new(vault_path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().map_or(false, |ext| ext == "md")
+                && !e
+                    .path()
+                    .components()
+                    .any(|c| c.as_os_str().to_string_lossy().starts_with('.'))
+        })
+    {
+        let source = entry
+            .path()
+            .strip_prefix(vault_path)
+            .unwrap_or(entry.path())
+            .to_string_lossy()
+            .to_string();
+
+        let content = match std::fs::read_to_string(entry.path()) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        for cap in re.captures_iter(&content) {
+            let target = cap[1].trim().to_string();
+            backlinks
+                .entry(target)
+                .or_insert_with(Vec::new)
+                .push(source.clone());
         }
     }
 
-    pub fn build_index(&self, path: &str) {
-        let mut links_map = HashMap::new();
-        let re = Regex::new(r"\[\[(.*?)\]\]").unwrap();
-        
-        // Псевдокод: используем walkdir для обхода .md файлов
-        // Читаем каждый файл
-        // Находим все [[links]] через regex
-        // links_map.entry(target).or_insert_with(Vec::new).push(current_file);
-        
-        *self.backlinks.lock().unwrap() = links_map;
-    }
+    backlinks
 }
