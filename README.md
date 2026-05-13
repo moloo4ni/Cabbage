@@ -1,51 +1,64 @@
 # Cabbage
 
-Cabbage is a local-first, cross-platform desktop application designed for personal knowledge management. Rather than relying on proprietary database formats or centralized cloud servers, it uses a standard Git repository as its single source of truth and pure Markdown files for data storage.
-
-## Core Philosophy
-
-The architecture is built around the concept of maximum data portability, transparency, and offline availability. By leveraging Git for version control and synchronization, users retain complete ownership of their data. There are no background sync services running on third-party infrastructure, no user accounts, and zero vendor lock-in. If the application is ever uninstalled, the user's knowledge base remains fully accessible as a standard directory of text files with a complete Git revision history.
+Cabbage is a local-first, cross-platform desktop application for personal knowledge management. It stores all notes as plain Markdown files inside a Git repository, giving you versioning, offline use, and full data portability — no proprietary database, no cloud account, no vendor lock-in.
 
 ## How It Works
 
-In Cabbage, a "vault" is simply a local directory on the user's file system initialized as a Git repository. Notes are created as standard Markdown (`.md`) files within this directory. 
+A **vault** is simply a local directory on your file system. Open any folder in Cabbage and it becomes your vault — if it is not already a Git repository, Cabbage runs `git init` automatically.
 
-As the user edits notes, the application handles versioning by making automatic, silent Git commits in the background. Synchronization across multiple devices is achieved entirely through standard Git network operations (fetch, pull with rebase, and push) against any remote repository supporting SSH or HTTPS protocols. This allows users to sync their vaults using GitHub, GitLab, or any self-hosted Git server. 
+Notes are standard `.md` files. As you edit, Cabbage saves your changes and silently commits them to the local repository. Syncing with another machine is a regular `git push` and `git pull --rebase` against any remote you configure (GitHub, GitLab, a self-hosted server — anything that speaks Git over SSH or HTTPS).
 
-The application is strictly offline-first. Network connectivity is completely optional and is only required during explicit synchronization events triggered by the user.
+## Current State
 
-## Technical Architecture
+The core read/write/sync loop is working:
 
-The application is structured as a decoupled system utilizing modern desktop technologies:
+- Open a vault via a native folder-picker dialog
+- Browse the file tree in the sidebar
+- Create and delete notes
+- Edit notes with auto-save (debounced 1.5 s)
+- Every save triggers an automatic local Git commit
+- Sync button runs `git fetch` + `git pull --rebase` + `git push`
+- In-memory backlinks index — notes that link to the current note are shown in the backlinks panel
+- Inline error bar for failed operations
 
-* **Presentation Layer:** The user interface is built with Svelte and utilizes CodeMirror 6 for a robust, syntax-aware Markdown editing experience. The frontend holds no persistent state and acts only as a rendering engine.
-* **Bridge Layer:** The frontend runs inside a secure webview managed by Tauri. All interactions between the user interface and the underlying system occur via Tauri's Inter-Process Communication (IPC) commands.
-* **Core Layer:** The backend logic, file system operations, and Git integrations are written in Rust. Upon opening a vault, the Rust core scans the directory and builds an in-memory graph index to resolve note links instantly without requiring a persistent database like SQLite.
+**Editor:** currently a plain `<textarea>`. CodeMirror 6 with Markdown syntax highlighting and `[[wiki-link]]` support is the next planned milestone.
 
-Currently, Git operations are executed via safe shell subprocess wrappers, with an architectural roadmap aimed at migrating to native Rust Git bindings (`gitoxide` or `libgit2`) in future releases.
+## Architecture
 
-## Local Development Setup
+The application is structured as a decoupled system:
 
-To build and run Cabbage locally, ensure you have the Rust toolchain, Node.js, pnpm, and standard Tauri system dependencies installed.
+- **Frontend (Svelte):** Handles UI rendering and user interactions. Holds no persistent state — everything is fetched from the Rust core via IPC.
+- **Bridge (Tauri IPC):** Secure communication channel between the Svelte webview and the native system.
+- **Core (Rust):** File system operations, Git commands (via shell subprocess wrappers), and an in-memory backlinks index built with `walkdir` on vault open.
 
-Clone the repository and install the frontend dependencies:
+Git operations currently use shell subprocess wrappers. The roadmap includes migrating to native Rust Git bindings (`gitoxide` or `libgit2`).
+
+## Roadmap
+
+- [ ] CodeMirror 6 editor with Markdown syntax highlighting
+- [ ] `[[wiki-link]]` highlighting and click-to-navigate
+- [ ] Note history view (per-file `git log` + diff + restore)
+- [ ] Graph view (visual node graph of backlinks)
+- [ ] Native Rust Git bindings (replace shell subprocess wrappers)
+
+## Local Development
+
+**Prerequisites:** Rust toolchain, Node.js (v18+), pnpm, Git, and the [Tauri system dependencies](https://tauri.app/v1/guides/getting-started/prerequisites) for your OS.
 
 ```bash
+git clone https://gitlab.com/moloo4ni/cabbage.git
+cd cabbage
 pnpm install
-```
-
-Start the application in development mode with hot-module replacement:
-
-```bash
 pnpm tauri dev
 ```
 
-To compile a standalone release binary for your current operating system:
+**Build a release binary:**
 
 ```bash
 pnpm tauri build
+# Output: src-tauri/target/release/bundle/
 ```
 
 ## Disclaimer
 
-Cabbage does not provide any proprietary cloud infrastructure. It does not track user metrics, require registration, or communicate with any external servers other than the explicit Git remotes configured by the user. Everything is handled locally on the host machine.
+Cabbage does not track user metrics, require registration, or communicate with any external servers other than the Git remotes you configure yourself. Everything runs locally on your machine.
