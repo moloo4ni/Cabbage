@@ -15,19 +15,18 @@ The core read/write/sync loop is working:
 - Open a vault via a native folder-picker dialog
 - Browse the file tree in the sidebar
 - Create and delete notes
-- Edit notes with auto-save (debounced 1.5 s)
-- Every save triggers an automatic local Git commit
+- Edit notes with CodeMirror 6 — Markdown syntax highlighting, line wrapping, minimal theme
+- `[[wiki-links]]` highlighted inline; Ctrl/Cmd+click navigates to the linked note (creates it if it does not exist)
+- Auto-save with a 1.5 s debounce — every save triggers an automatic local Git commit
 - Sync button runs `git fetch` + `git pull --rebase` + `git push`
 - In-memory backlinks index — notes that link to the current note are shown in the backlinks panel
 - Inline error bar for failed operations
-
-**Editor:** currently a plain `<textarea>`. CodeMirror 6 with Markdown syntax highlighting and `[[wiki-link]]` support is the next planned milestone.
 
 ## Architecture
 
 The application is structured as a decoupled system:
 
-- **Frontend (Svelte):** Handles UI rendering and user interactions. Holds no persistent state — everything is fetched from the Rust core via IPC.
+- **Frontend (Svelte):** Handles UI rendering and user interactions. Holds no persistent state — everything is fetched from the Rust core via IPC. Editor is CodeMirror 6 with a custom `[[wiki-link]]` extension.
 - **Bridge (Tauri IPC):** Secure communication channel between the Svelte webview and the native system.
 - **Core (Rust):** File system operations, Git commands (via shell subprocess wrappers), and an in-memory backlinks index built with `walkdir` on vault open.
 
@@ -35,8 +34,8 @@ Git operations currently use shell subprocess wrappers. The roadmap includes mig
 
 ## Roadmap
 
-- [ ] CodeMirror 6 editor with Markdown syntax highlighting
-- [ ] `[[wiki-link]]` highlighting and click-to-navigate
+- [x] CodeMirror 6 editor with Markdown syntax highlighting
+- [x] `[[wiki-link]]` highlighting and click-to-navigate
 - [ ] Note history view (per-file `git log` + diff + restore)
 - [ ] Graph view (visual node graph of backlinks)
 - [ ] Native Rust Git bindings (replace shell subprocess wrappers)
