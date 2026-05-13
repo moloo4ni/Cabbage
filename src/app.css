@@ -1,0 +1,19 @@
+:root {
+  --bg-color: #ffffff;
+  --sidebar-bg: #f9fafb;
+  --border-color: #e5e7eb;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --accent: #10b981; /* Зеленый "капустный" цвет */
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text-main);
+  background: var(--bg-color);
+  user-select: none; /* Запрещаем выделение текста вне редактора */
+}
+
+textarea {
+  user-select: text; /* Разрешаем выделение в редакторе */
+}
