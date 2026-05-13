@@ -1,0 +1,43 @@
+stages:
+  - check
+
+variables:
+  CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+
+# ── Rust: cargo check + clippy ───────────────────────────────────────────────
+rust-check:
+  stage: check
+  image: rust:latest
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq
+        libssl-dev
+        pkg-config
+        libgtk-3-dev
+        libwebkit2gtk-4.0-dev
+        libappindicator3-dev
+        librsvg2-dev
+    - rustup component add clippy
+  script:
+    - cd src-tauri
+    - cargo check
+    - cargo clippy -- -D warnings
+  cache:
+    key: cargo-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cargo/registry/
+      - src-tauri/target/
+
+# ── Frontend: svelte-check + TypeScript ─────────────────────────────────────
+frontend-check:
+  stage: check
+  image: node:20
+  before_script:
+    - npm install -g pnpm --silent
+    - pnpm install
+  script:
+    - pnpm check
+  cache:
+    key: pnpm-$CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
