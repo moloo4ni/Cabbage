@@ -2,6 +2,7 @@
   import './app.css';
   import { api } from './lib/api';
   import { activeVault, fileTree, activeNotePath, isSyncing, backlinks } from './lib/stores';
+  import Editor from './lib/Editor.svelte';
 
   let noteContent = '';
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,7 +36,6 @@
       activeNotePath.set(relPath);
       noteContent = content;
 
-      // Load backlinks for this note
       const noteName = relPath.replace(/\.md$/i, '').split('/').pop() ?? relPath;
       const links = await api.getBacklinks(noteName);
       backlinks.set(links);
@@ -44,14 +44,30 @@
     }
   }
 
+  // Navigate from a [[wiki-link]] click: find a matching file or create it
+  async function handleNavigate(target: string) {
+    const match = $fileTree.find(
+      n => !n.is_dir && n.name.replace(/\.md$/i, '') === target
+    );
+    if (match) {
+      await openFile(match.path);
+    } else {
+      const newPath = `${target}.md`;
+      try {
+        await api.createNote(newPath);
+        await refreshFileTree();
+        await openFile(newPath);
+      } catch (e) {
+        errorMessage = `Failed to create note "${target}": ${e}`;
+      }
+    }
+  }
+
   // ── Auto-save (debounced 1.5 s) ──────────────────────────────────────────
 
-  function handleInput(event: Event) {
-    const target = event.target as HTMLTextAreaElement;
-    noteContent = target.value;
-
+  function handleEditorInput(event: CustomEvent<string>) {
+    noteContent = event.detail;
     if (!$activeNotePath) return;
-
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try {
@@ -66,11 +82,9 @@
 
   async function handleCreateNote() {
     if (!newNoteName.trim()) return;
-
-    const fileName = newNoteName.endsWith('.md')
+    const fileName = newNoteName.trim().endsWith('.md')
       ? newNoteName.trim()
       : `${newNoteName.trim()}.md`;
-
     try {
       await api.createNote(fileName);
       newNoteName = '';
@@ -86,7 +100,6 @@
 
   async function handleDeleteNote(relPath: string) {
     if (!confirm(`Delete "${relPath}"?`)) return;
-
     try {
       await api.deleteNote(relPath);
       if ($activeNotePath === relPath) {
@@ -107,9 +120,7 @@
     errorMessage = '';
     try {
       const result = await api.sync();
-      if (!result.success) {
-        errorMessage = result.output;
-      }
+      if (!result.success) errorMessage = result.output;
     } catch (e) {
       errorMessage = `Sync failed: ${e}`;
     } finally {
@@ -131,7 +142,7 @@
           disabled={$isSyncing}
           title="Sync vault with remote"
         >
-          {$isSyncing ? '⟳ Syncing…' : '↑↓ Sync'}
+          {$isSyncing ? 'Syncing...' : 'Sync'}
         </button>
       {/if}
     </div>
@@ -144,7 +155,7 @@
     {:else}
       <div class="sidebar-toolbar">
         <span class="vault-name" title={$activeVault}>
-          {$activeVault.split('/').pop() ?? $activeVault}
+          {$activeVault.split('/').pop() ?? $activeVault.split('\\').pop() ?? $activeVault}
         </span>
         <button
           class="icon-btn"
@@ -173,7 +184,7 @@
             class="file-node {node.is_dir ? 'dir' : 'file'} {$activeNotePath === node.path ? 'active' : ''}"
             on:click={() => !node.is_dir && openFile(node.path)}
           >
-            <span class="node-icon">{node.is_dir ? '▸' : '·'}</span>
+            <span class="node-icon">{node.is_dir ? '>' : '-'}</span>
             <span class="node-name">{node.name}</span>
             {#if !node.is_dir}
               <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -181,7 +192,7 @@
                 class="delete-btn"
                 title="Delete note"
                 on:click|stopPropagation={() => handleDeleteNote(node.path)}
-              >✕</span>
+              >x</span>
             {/if}
           </div>
         {/each}
@@ -192,20 +203,23 @@
   <!-- Editor ----------------------------------------------------------------->
   <section class="editor-pane">
     {#if errorMessage}
-      <div class="error-bar">{errorMessage} <button on:click={() => (errorMessage = '')}>✕</button></div>
+      <div class="error-bar">
+        {errorMessage}
+        <button on:click={() => (errorMessage = '')}>x</button>
+      </div>
     {/if}
 
     {#if $activeNotePath}
       <div class="editor-header">
         <span class="path">{$activeNotePath}</span>
+        <span class="hint-text">Ctrl+click a [[link]] to navigate</span>
       </div>
 
-      <textarea
-        class="editor-textarea"
+      <Editor
         value={noteContent}
-        on:input={handleInput}
-        placeholder="Start writing in Markdown…"
-      ></textarea>
+        onNavigate={handleNavigate}
+        on:input={handleEditorInput}
+      />
 
       {#if $backlinks.length > 0}
         <div class="backlinks-panel">
@@ -242,6 +256,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .sidebar-header {
@@ -263,7 +278,7 @@
     gap: 12px;
     padding: 24px;
   }
-  .hint { font-size: 13px; color: var(--text-muted); text-align: center; }
+  .hint { font-size: 13px; color: var(--text-muted); text-align: center; margin: 0; }
 
   .sidebar-toolbar {
     display: flex;
@@ -325,7 +340,7 @@
   .file-node.active { background: var(--border-color); color: var(--text-main); font-weight: 500; }
   .file-node.dir { cursor: default; font-weight: 600; }
 
-  .node-icon { font-size: 10px; flex-shrink: 0; }
+  .node-icon { font-size: 10px; flex-shrink: 0; color: var(--text-muted); }
   .node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .delete-btn {
@@ -333,6 +348,7 @@
     font-size: 11px;
     color: #aaa;
     flex-shrink: 0;
+    line-height: 1;
   }
   .file-node:hover .delete-btn { display: inline; }
   .delete-btn:hover { color: #e00; }
@@ -344,6 +360,7 @@
     flex-direction: column;
     background: var(--bg-color);
     overflow: hidden;
+    min-width: 0;
   }
 
   .error-bar {
@@ -370,24 +387,11 @@
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     flex-shrink: 0;
   }
   .path { font-size: 13px; color: var(--text-muted); }
-
-  .editor-textarea {
-    flex: 1;
-    width: 100%;
-    padding: 32px 40px;
-    border: none;
-    resize: none;
-    outline: none;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 15px;
-    line-height: 1.7;
-    box-sizing: border-box;
-    background: var(--bg-color);
-    color: var(--text-main);
-  }
+  .hint-text { font-size: 11px; color: #d1d5db; }
 
   .backlinks-panel {
     border-top: 1px solid var(--border-color);
@@ -397,9 +401,9 @@
   }
   .backlinks-panel h4 {
     margin: 0 0 8px;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--text-muted);
   }
   .backlinks-panel ul { margin: 0; padding: 0; list-style: none; }
@@ -409,6 +413,7 @@
     color: var(--accent);
     cursor: pointer;
     text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .backlink-item:hover { opacity: 0.8; }
 
@@ -435,6 +440,5 @@
   .btn:hover:not(:disabled) { opacity: 0.85; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-lg { padding: 10px 20px; font-size: 15px; }
-
   .sync-btn { font-size: 12px; padding: 4px 10px; }
 </style>
