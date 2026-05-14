@@ -26,6 +26,10 @@ fn main() {
             commands::get_backlinks,
             // git
             commands::sync,
+            // note history
+            commands::get_note_history,
+            commands::get_note_at_commit,
+            commands::restore_note_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
