@@ -3,11 +3,13 @@
   import { api } from './lib/api';
   import { activeVault, fileTree, activeNotePath, isSyncing, backlinks } from './lib/stores';
   import Editor from './lib/Editor.svelte';
+  import HistoryPanel from './lib/HistoryPanel.svelte';
 
   let noteContent = '';
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let newNoteName = '';
   let showNewNoteInput = false;
+  let showHistory = false;
   let errorMessage = '';
 
   // ── Vault ────────────────────────────────────────────────────────────────
@@ -113,6 +115,16 @@
     }
   }
 
+  // ── Note history ─────────────────────────────────────────────────────────
+
+  function handleRestore(content: string) {
+    noteContent = content;
+    showHistory = false;
+  }
+
+  // Close history panel when switching notes
+  $: if ($activeNotePath) showHistory = false;
+
   // ── Git sync ─────────────────────────────────────────────────────────────
 
   async function handleSync() {
@@ -212,29 +224,49 @@
     {#if $activeNotePath}
       <div class="editor-header">
         <span class="path">{$activeNotePath}</span>
-        <span class="hint-text">Ctrl+click a [[link]] to navigate</span>
+        <div class="header-actions">
+          <span class="hint-text">Ctrl+click [[link]] to navigate</span>
+          <button
+            class="icon-btn history-toggle {showHistory ? 'active' : ''}"
+            title="Toggle history panel"
+            on:click={() => (showHistory = !showHistory)}
+          >history</button>
+        </div>
       </div>
 
-      <Editor
-        value={noteContent}
-        onNavigate={handleNavigate}
-        on:input={handleEditorInput}
-      />
+      <div class="editor-with-history">
+        <div class="editor-col">
+          <Editor
+            value={noteContent}
+            onNavigate={handleNavigate}
+            on:input={handleEditorInput}
+          />
 
-      {#if $backlinks.length > 0}
-        <div class="backlinks-panel">
-          <h4>Backlinks</h4>
-          <ul>
-            {#each $backlinks as link}
-              <li>
-                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                <!-- svelte-ignore a11y-no-static-element-interactions -->
-                <span class="backlink-item" on:click={() => openFile(link)}>{link}</span>
-              </li>
-            {/each}
-          </ul>
+          {#if $backlinks.length > 0}
+            <div class="backlinks-panel">
+              <h4>Backlinks</h4>
+              <ul>
+                {#each $backlinks as link}
+                  <li>
+                    <!-- svelte-ignore a11y-click-events-have-key-events -->
+                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                    <span class="backlink-item" on:click={() => openFile(link)}>{link}</span>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
         </div>
-      {/if}
+
+        {#if showHistory}
+          <div class="history-col">
+            <HistoryPanel
+              relPath={$activeNotePath}
+              onRestore={handleRestore}
+            />
+          </div>
+        {/if}
+      </div>
     {:else}
       <div class="empty-state">
         <p>Select a note or create a new one.</p>
@@ -381,9 +413,30 @@
     font-size: 14px;
   }
 
+  .editor-with-history {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .editor-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .history-col {
+    width: 320px;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   .editor-header {
     height: 44px;
-    padding: 0 20px;
+    padding: 0 16px 0 20px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
@@ -391,7 +444,19 @@
     flex-shrink: 0;
   }
   .path { font-size: 13px; color: var(--text-muted); }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
   .hint-text { font-size: 11px; color: #d1d5db; }
+  .history-toggle {
+    font-size: 11px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+  }
+  .history-toggle:hover { color: var(--text-main); border-color: #9ca3af; }
+  .history-toggle.active { color: var(--accent); border-color: var(--accent); }
 
   .backlinks-panel {
     border-top: 1px solid var(--border-color);

@@ -152,3 +152,51 @@ pub fn sync(state: State<'_, AppState>) -> Result<cli::GitResult, String> {
 
     cli::sync_vault(&root)
 }
+
+// ── Note history ──────────────────────────────────────────────────────────────
+
+/// Returns the git commit history for a single note (up to 50 entries).
+#[tauri::command]
+pub fn get_note_history(
+    state: State<'_, AppState>,
+    rel_path: String,
+) -> Result<Vec<cli::CommitInfo>, String> {
+    let lock = state.current_vault.lock().unwrap();
+    let root = lock.as_ref().ok_or("Vault not opened")?;
+    cli::get_note_history(root, &rel_path)
+}
+
+/// Returns the content of a note at a specific commit (read-only preview).
+#[tauri::command]
+pub fn get_note_at_commit(
+    state: State<'_, AppState>,
+    rel_path: String,
+    commit_hash: String,
+) -> Result<String, String> {
+    let lock = state.current_vault.lock().unwrap();
+    let root = lock.as_ref().ok_or("Vault not opened")?;
+    cli::get_note_at_commit(root, &commit_hash, &rel_path)
+}
+
+/// Restores a note to a previous version: writes the old content and auto-commits.
+/// Returns the restored content so the frontend can update the editor immediately.
+#[tauri::command]
+pub fn restore_note_version(
+    state: State<'_, AppState>,
+    rel_path: String,
+    commit_hash: String,
+) -> Result<String, String> {
+    let lock = state.current_vault.lock().unwrap();
+    let root = lock.as_ref().ok_or("Vault not opened")?;
+    let root = root.clone();
+    drop(lock);
+
+    let content = cli::get_note_at_commit(&root, &commit_hash, &rel_path)?;
+    fs::write_note(&root, &rel_path, &content)?;
+    cli::auto_commit(&root, &rel_path)?;
+
+    let fresh = index::build_index(&root);
+    *state.backlinks.lock().unwrap() = fresh;
+
+    Ok(content)
+}

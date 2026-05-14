@@ -7,6 +7,14 @@ pub struct GitResult {
     pub output: String,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct CommitInfo {
+    pub hash: String,
+    pub message: String,
+    pub timestamp: String,
+    pub author: String,
+}
+
 pub fn git_exec(vault_path: &Path, args: &[&str]) -> Result<GitResult, String> {
     let output = Command::new("git")
         .current_dir(vault_path)
@@ -54,6 +62,53 @@ pub fn auto_commit(vault_path: &Path, file_path: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Returns the commit history for a specific file (up to 50 entries).
+/// Uses ASCII Unit Separator (0x1F) as field delimiter to avoid
+/// collisions with commit message content.
+pub fn get_note_history(vault_path: &Path, rel_path: &str) -> Result<Vec<CommitInfo>, String> {
+    let format = "%H\x1f%s\x1f%aI\x1f%an";
+    let res = git_exec(
+        vault_path,
+        &["log", "--follow", &format!("--format={}", format), "-n", "50", "--", rel_path],
+    )?;
+
+    if !res.success {
+        return Err(format!("git log failed: {}", res.output));
+    }
+
+    let commits = res.output
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|line| {
+            let mut parts = line.splitn(4, '\x1f');
+            CommitInfo {
+                hash:      parts.next().unwrap_or("").to_string(),
+                message:   parts.next().unwrap_or("").to_string(),
+                timestamp: parts.next().unwrap_or("").to_string(),
+                author:    parts.next().unwrap_or("").to_string(),
+            }
+        })
+        .collect();
+
+    Ok(commits)
+}
+
+/// Returns the raw content of a file at a specific commit.
+pub fn get_note_at_commit(
+    vault_path: &Path,
+    commit_hash: &str,
+    rel_path: &str,
+) -> Result<String, String> {
+    let object = format!("{}:{}", commit_hash, rel_path);
+    let res = git_exec(vault_path, &["show", &object])?;
+
+    if !res.success {
+        return Err(format!("git show failed: {}", res.output));
+    }
+
+    Ok(res.output)
 }
 
 /// fetch → pull --rebase → push. Aborts the rebase on conflict.
