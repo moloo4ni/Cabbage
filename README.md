@@ -20,6 +20,7 @@ The core read/write/sync loop is working:
 - Auto-save with a 1.5 s debounce — every save triggers an automatic local Git commit
 - Sync button runs `git fetch` + `git pull --rebase` + `git push`
 - In-memory backlinks index — notes that link to the current note are shown in the backlinks panel
+- History panel — browse up to 50 commits for the active note, preview any version, restore with one click
 - Inline error bar for failed operations
 
 ## Architecture
@@ -36,7 +37,7 @@ Git operations currently use shell subprocess wrappers. The roadmap includes mig
 
 - [x] CodeMirror 6 editor with Markdown syntax highlighting
 - [x] `[[wiki-link]]` highlighting and click-to-navigate
-- [ ] Note history view (per-file `git log` + diff + restore)
+- [x] Note history view (per-file `git log` + version preview + restore)
 - [ ] Graph view (visual node graph of backlinks)
 - [ ] Native Rust Git bindings (replace shell subprocess wrappers)
 
