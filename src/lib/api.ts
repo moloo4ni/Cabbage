@@ -11,6 +11,13 @@ export interface GitResult {
     output: string;
 }
 
+export interface CommitInfo {
+    hash: string;
+    message: string;
+    timestamp: string;
+    author: string;
+}
+
 export const api = {
     // ── Vault ──────────────────────────────────────────────────────────────
 
@@ -59,5 +66,22 @@ export const api = {
 
     async sync(): Promise<GitResult> {
         return invoke('sync');
+    },
+
+    // ── Note history ───────────────────────────────────────────────────────
+
+    /** Returns up to 50 git commits for the given note file. */
+    async getNoteHistory(relPath: string): Promise<CommitInfo[]> {
+        return invoke('get_note_history', { relPath });
+    },
+
+    /** Returns the raw content of a note at a specific commit (preview only). */
+    async getNoteAtCommit(relPath: string, commitHash: string): Promise<string> {
+        return invoke('get_note_at_commit', { relPath, commitHash });
+    },
+
+    /** Restores a note to a previous commit. Writes + auto-commits. Returns new content. */
+    async restoreNoteVersion(relPath: string, commitHash: string): Promise<string> {
+        return invoke('restore_note_version', { relPath, commitHash });
     },
 };
