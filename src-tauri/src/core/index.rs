@@ -14,7 +14,7 @@ pub fn build_index(vault_path: &Path) -> HashMap<String, Vec<String>> {
         .filter_map(Result::ok)
         .filter(|e| {
             e.file_type().is_file()
-                && e.path().extension().map_or(false, |ext| ext == "md")
+                && e.path().extension().is_some_and(|ext| ext == "md")
                 && !e
                     .path()
                     .components()
@@ -37,7 +37,7 @@ pub fn build_index(vault_path: &Path) -> HashMap<String, Vec<String>> {
             let target = cap[1].trim().to_string();
             backlinks
                 .entry(target)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(source.clone());
         }
     }
