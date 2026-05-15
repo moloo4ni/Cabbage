@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use tauri::{State, Manager};
+use tauri::State;
 use crate::state::AppState;
 use crate::core::{fs, index};
 use crate::git::cli;
