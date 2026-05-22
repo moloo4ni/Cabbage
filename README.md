@@ -38,7 +38,7 @@ Git operations currently use shell subprocess wrappers. The roadmap includes mig
 - [x] CodeMirror 6 editor with Markdown syntax highlighting
 - [x] `[[wiki-link]]` highlighting and click-to-navigate
 - [x] Note history view (per-file `git log` + version preview + restore)
-- [ ] Graph view (visual node graph of backlinks)
+- [x] Graph view — canvas force-directed graph of all notes and wikilink connections
 - [ ] Native Rust Git bindings (replace shell subprocess wrappers)
 
 ## Local Development

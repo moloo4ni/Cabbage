@@ -4,12 +4,14 @@
   import { activeVault, fileTree, activeNotePath, isSyncing, backlinks } from './lib/stores';
   import Editor from './lib/Editor.svelte';
   import HistoryPanel from './lib/HistoryPanel.svelte';
+  import GraphView from './lib/GraphView.svelte';
 
   let noteContent = '';
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let newNoteName = '';
   let showNewNoteInput = false;
   let showHistory = false;
+  let showGraph = false;
   let errorMessage = '';
 
   // ── Vault ────────────────────────────────────────────────────────────────
@@ -125,6 +127,13 @@
   // Close history panel when switching notes
   $: if ($activeNotePath) showHistory = false;
 
+  // ── Graph navigate ───────────────────────────────────────────────────────
+
+  async function handleGraphNavigate(event: CustomEvent<string>) {
+    showGraph = false;
+    await handleNavigate(event.detail);
+  }
+
   // ── Git sync ─────────────────────────────────────────────────────────────
 
   async function handleSync() {
@@ -147,16 +156,23 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <h2>Cabbage</h2>
-      {#if $activeVault}
-        <button
-          class="btn sync-btn"
-          on:click={handleSync}
-          disabled={$isSyncing}
-          title="Sync vault with remote"
-        >
-          {$isSyncing ? 'Syncing...' : 'Sync'}
-        </button>
-      {/if}
+      <div class="sidebar-header-actions">
+        {#if $activeVault}
+          <button
+            class="icon-btn {showGraph ? 'active' : ''}"
+            title="Toggle graph view"
+            on:click={() => (showGraph = !showGraph)}
+          >graph</button>
+          <button
+            class="btn sync-btn"
+            on:click={handleSync}
+            disabled={$isSyncing}
+            title="Sync vault with remote"
+          >
+            {$isSyncing ? 'Syncing...' : 'Sync'}
+          </button>
+        {/if}
+      </div>
     </div>
 
     {#if !$activeVault}
@@ -212,7 +228,7 @@
     {/if}
   </aside>
 
-  <!-- Editor ----------------------------------------------------------------->
+  <!-- Editor / Graph --------------------------------------------------------->
   <section class="editor-pane">
     {#if errorMessage}
       <div class="error-bar">
@@ -221,7 +237,22 @@
       </div>
     {/if}
 
-    {#if $activeNotePath}
+    {#if showGraph}
+      <div class="graph-pane-header">
+        <span class="path">Graph View</span>
+        <button
+          class="icon-btn"
+          title="Close graph view"
+          on:click={() => (showGraph = false)}
+        >x</button>
+      </div>
+      <div class="graph-pane">
+        <GraphView
+          activeNotePath={$activeNotePath}
+          on:navigate={handleGraphNavigate}
+        />
+      </div>
+    {:else if $activeNotePath}
       <div class="editor-header">
         <span class="path">{$activeNotePath}</span>
         <div class="header-actions">
@@ -300,6 +331,7 @@
     flex-shrink: 0;
   }
   .sidebar-header h2 { margin: 0; font-size: 15px; color: var(--accent); font-weight: 700; }
+  .sidebar-header-actions { display: flex; align-items: center; gap: 8px; }
 
   .vault-prompt {
     flex: 1;
@@ -384,6 +416,25 @@
   }
   .file-node:hover .delete-btn { display: inline; }
   .delete-btn:hover { color: #e00; }
+
+  /* ── Graph pane ──────────────────────────────────────────────────────────── */
+  .graph-pane-header {
+    height: 44px;
+    padding: 0 16px 0 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .graph-pane {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
 
   /* ── Editor ──────────────────────────────────────────────────────────────── */
   .editor-pane {
