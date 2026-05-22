@@ -18,7 +18,8 @@ The core read/write/sync loop is working:
 - Edit notes with CodeMirror 6 — Markdown syntax highlighting, line wrapping, minimal theme
 - `[[wiki-links]]` highlighted inline; Ctrl/Cmd+click navigates to the linked note (creates it if it does not exist)
 - Auto-save with a 1.5 s debounce — every save triggers an automatic local Git commit
-- Sync button runs `git fetch` + `git pull --rebase` + `git push`
+- Graph view — canvas force-directed graph of all notes and `[[wikilink]]` connections
+- Sync button runs fetch → fast-forward or rebase → push, all via native libgit2 (no `git` binary required)
 - In-memory backlinks index — notes that link to the current note are shown in the backlinks panel
 - History panel — browse up to 50 commits for the active note, preview any version, restore with one click
 - Inline error bar for failed operations
@@ -29,9 +30,7 @@ The application is structured as a decoupled system:
 
 - **Frontend (Svelte):** Handles UI rendering and user interactions. Holds no persistent state — everything is fetched from the Rust core via IPC. Editor is CodeMirror 6 with a custom `[[wiki-link]]` extension.
 - **Bridge (Tauri IPC):** Secure communication channel between the Svelte webview and the native system.
-- **Core (Rust):** File system operations, Git commands (via shell subprocess wrappers), and an in-memory backlinks index built with `walkdir` on vault open.
-
-Git operations currently use shell subprocess wrappers. The roadmap includes migrating to native Rust Git bindings (`gitoxide` or `libgit2`).
+- **Core (Rust):** File system operations, native Git operations via `git2` (libgit2 bindings), and an in-memory backlinks index built with `walkdir` on vault open.
 
 ## Roadmap
 
@@ -39,7 +38,7 @@ Git operations currently use shell subprocess wrappers. The roadmap includes mig
 - [x] `[[wiki-link]]` highlighting and click-to-navigate
 - [x] Note history view (per-file `git log` + version preview + restore)
 - [x] Graph view — canvas force-directed graph of all notes and wikilink connections
-- [ ] Native Rust Git bindings (replace shell subprocess wrappers)
+- [x] Native Rust Git bindings — `git2` / libgit2, no system `git` binary required
 
 ## Local Development
 
