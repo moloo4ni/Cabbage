@@ -24,6 +24,7 @@ fn main() {
             commands::delete_note,
             // knowledge graph
             commands::get_backlinks,
+            commands::get_graph,
             // git
             commands::sync,
             // note history

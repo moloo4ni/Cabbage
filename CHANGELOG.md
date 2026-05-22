@@ -5,9 +5,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+**Graph view**
+- New `get_graph` Tauri command: walks the vault for all `.md` files and converts
+  the backlinks index into a list of `GraphNode` / `GraphEdge` structs
+- `GraphView.svelte`: canvas-based force-directed graph; no extra runtime
+  dependencies — repulsion, spring, centering and damping forces are implemented
+  from scratch using `requestAnimationFrame`
+- Nodes are all notes in the vault; edges are `[[wikilink]]` connections
+- Currently active note is highlighted in green
+- Scroll-to-zoom and drag-to-pan interactions
+- Clicking a node navigates to that note and returns to the editor view
+- "Reload" button refreshes the graph after vault changes
+- Graph toggle button added to the sidebar header (shown when a vault is open)
+
 ### Planned
-- Note history view — per-file `git log`, diff viewer, version restore
-- Graph view — visual node graph of backlinks (D3.js / canvas)
 - Native Rust Git bindings — replace shell subprocess wrappers with `gitoxide` or `libgit2`
 
 ---

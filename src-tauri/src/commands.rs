@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::collections::HashSet;
 use tauri::State;
 use crate::state::AppState;
 use crate::core::{fs, index};
@@ -199,4 +200,90 @@ pub fn restore_note_version(
     *state.backlinks.lock().unwrap() = fresh;
 
     Ok(content)
+}
+
+// ── Graph view ────────────────────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+pub struct GraphNode {
+    pub id: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct GraphData {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+}
+
+/// Returns all notes as nodes and all [[wikilink]] connections as edges.
+/// Nodes include every .md file in the vault plus any unresolved link targets.
+#[tauri::command]
+pub fn get_graph(state: State<'_, AppState>) -> Result<GraphData, String> {
+    use walkdir::WalkDir;
+
+    let vault_lock = state.current_vault.lock().unwrap();
+    let root = vault_lock.as_ref().ok_or("Vault not opened")?;
+    let root = root.clone();
+    drop(vault_lock);
+
+    // Seed node set with every .md file currently on disk
+    let mut node_ids: HashSet<String> = HashSet::new();
+    for entry in WalkDir::new(&root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| {
+            e.file_type().is_file()
+                && e.path().extension().is_some_and(|ext| ext == "md")
+                && !e
+                    .path()
+                    .components()
+                    .any(|c| c.as_os_str().to_string_lossy().starts_with('.'))
+        })
+    {
+        if let Some(stem) = entry.path().file_stem() {
+            node_ids.insert(stem.to_string_lossy().to_string());
+        }
+    }
+
+    // Build directed edges from the backlinks index.
+    // backlinks[target] = Vec<source_rel_path>  =>  edge: source_name -> target
+    let bl_lock = state.backlinks.lock().unwrap();
+    let mut edges: Vec<GraphEdge> = Vec::new();
+
+    for (target, sources) in bl_lock.iter() {
+        // An unresolved target (note not yet created) still becomes a node
+        node_ids.insert(target.clone());
+
+        for source_path in sources {
+            let source_name = std::path::Path::new(source_path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+
+            if source_name.is_empty() {
+                continue;
+            }
+
+            node_ids.insert(source_name.clone());
+            edges.push(GraphEdge {
+                source: source_name,
+                target: target.clone(),
+            });
+        }
+    }
+    drop(bl_lock);
+
+    let nodes = node_ids
+        .into_iter()
+        .map(|id| GraphNode { id })
+        .collect();
+
+    Ok(GraphData { nodes, edges })
 }

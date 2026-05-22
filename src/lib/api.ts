@@ -18,6 +18,20 @@ export interface CommitInfo {
     author: string;
 }
 
+export interface GraphNode {
+    id: string;
+}
+
+export interface GraphEdge {
+    source: string;
+    target: string;
+}
+
+export interface GraphData {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+}
+
 export const api = {
     // ── Vault ──────────────────────────────────────────────────────────────
 
@@ -60,6 +74,11 @@ export const api = {
     /** Returns paths of all notes that link to `noteName` via [[noteName]]. */
     async getBacklinks(noteName: string): Promise<string[]> {
         return invoke('get_backlinks', { noteName });
+    },
+
+    /** Returns all notes as graph nodes and all [[wikilink]] edges between them. */
+    async getGraph(): Promise<GraphData> {
+        return invoke('get_graph');
     },
 
     // ── Git sync ───────────────────────────────────────────────────────────
