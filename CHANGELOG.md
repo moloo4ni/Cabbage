@@ -7,7 +7,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-**Graph view**
+**Native Rust Git bindings**
+- Replaced every `Command::new("git")` shell subprocess call with `git2` (libgit2 Rust bindings)
+- `ensure_git_repo` → `Repository::init()` — no external `git` binary required for init
+- `auto_commit` → index API (`add_path` / `remove_path` / `update_all` + `add_all`) +
+  `repo.commit()`; silently skips when the tree matches HEAD (no "nothing to commit" subprocess)
+- `get_note_history` → `revwalk` over the full history, diff each commit against its parent
+  to find commits that touched the file; up to 50 results, newest-first
+- `get_note_at_commit` → `repo.find_commit` → tree lookup → blob content; no shell round-trip
+- `sync_vault` → native fetch with `RemoteCallbacks`, merge-analysis-driven integration
+  (fast-forward or rebase), and native push; same error semantics as before
+- Credential callback: SSH agent first, then falls back to `~/.ssh/id_ed25519` / `id_ecdsa` /
+  `id_rsa`; platform-default credentials as final fallback
+- Committer identity: reads from local git config; falls back to `Cabbage <cabbage@local>`
+- `git2` added as a dependency with `vendored-libgit2` (no system libgit2 required) and
+  `ssh` (SSH remote support via libssh2)
+
+**Previously merged — Graph view**
 - New `get_graph` Tauri command: walks the vault for all `.md` files and converts
   the backlinks index into a list of `GraphNode` / `GraphEdge` structs
 - `GraphView.svelte`: canvas-based force-directed graph; no extra runtime
@@ -19,9 +35,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Clicking a node navigates to that note and returns to the editor view
 - "Reload" button refreshes the graph after vault changes
 - Graph toggle button added to the sidebar header (shown when a vault is open)
-
-### Planned
-- Native Rust Git bindings — replace shell subprocess wrappers with `gitoxide` or `libgit2`
 
 ---
 
